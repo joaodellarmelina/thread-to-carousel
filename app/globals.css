@@ -1,26 +1,91 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --app-bg-0: #0b0b0d;
+  --app-bg-1: #16171b;
+  --app-fg: #f4f4f5;
+  --app-fg-muted: #9a9aa2;
+  --app-accent: #1d9bf0;
+  --material-bg: rgba(255, 255, 255, 0.06);
+  --material-border: rgba(255, 255, 255, 0.1);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--app-bg-0);
+  --color-foreground: var(--app-fg);
+  --font-sans: var(--font-display);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: radial-gradient(ellipse at top, var(--app-bg-1) 0%, var(--app-bg-0) 60%) fixed;
+  color: var(--app-fg);
+  font: 100%/1.5 var(--font-sans), system-ui, sans-serif;
+}
+
+.material {
+  background: var(--material-bg);
+  border: 1px solid var(--material-border);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Modals need to stay legible over the backdrop, so unlike .material they're
+   near-opaque — a light blur adds depth without sacrificing text contrast. */
+.modal-surface {
+  background: rgba(18, 18, 22, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.display-heading {
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+.font-display {
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+}
+
+::selection {
+  background: var(--app-accent);
+  color: white;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Kill decorative keyframe animations (spinners, etc). Short (<=200ms) hover/press
+     transitions stay — they're feedback that aids comprehension, not movement. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .material {
+    background: var(--app-bg-1);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .material {
+    background: var(--app-bg-1);
+    border-color: rgba(255, 255, 255, 0.4);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
