@@ -61,7 +61,7 @@ its position within that batch, capped at 5, as an `enterDelay` in seconds
 /* target — components/slide-rail.tsx, full file */
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useState } from "react";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { AnimatePresence } from "motion/react";
@@ -92,15 +92,19 @@ export function SlideRail() {
 
   // Ids present as of the last committed render — diffing against this each
   // render tells us which ids are genuinely new (just imported/added), as
-  // opposed to a reorder or edit re-rendering the same set of ids. Updated
-  // in an effect (post-commit) so this render's diff always compares against
-  // the previous render's ids, never the current one.
-  const prevIdsRef = useRef<string[]>(slides.map((s) => s.id));
+  // opposed to a reorder or edit re-rendering the same set of ids. Adjusted
+  // synchronously during render (React's documented "previous value" pattern
+  // — the same one already used for trackedSlideId in slide-canvas.tsx)
+  // rather than a ref+effect: the eslint react-hooks/refs rule in this repo
+  // forbids reading ref.current during render, and an effect would only
+  // catch the new ids one render late.
+  const [prevIds, setPrevIds] = useState<string[]>(() => slides.map((s) => s.id));
   const currentIds = slides.map((s) => s.id);
-  const addedIds = currentIds.filter((id) => !prevIdsRef.current.includes(id));
-  useEffect(() => {
-    prevIdsRef.current = currentIds;
-  });
+  const idsChanged = currentIds.length !== prevIds.length || currentIds.some((id, i) => id !== prevIds[i]);
+  const addedIds = idsChanged ? currentIds.filter((id) => !prevIds.includes(id)) : [];
+  if (idsChanged) {
+    setPrevIds(currentIds);
+  }
 
   return (
     <aside className="material flex w-44 shrink-0 flex-col gap-3 overflow-y-auto border-y-0 border-l-0 p-3 sm:w-52">
@@ -185,10 +189,13 @@ export function SlideThumbnail({
   Motion API — see [Motion's transition docs] pattern of keying by animated
   property name (`opacity`, `layout`, etc.) inside the `transition` object;
   no new dependency is needed, `motion/react` already supports this.
-- The "previous value via ref + effect" pattern for diffing renders is not
-  yet used elsewhere in this repo; the code above is the first instance —
-  keep it exactly as scoped (local to `slide-rail.tsx`, not extracted into
-  `lib/`) since it's only needed here.
+- The "adjust state during render to track a previous value" pattern is
+  already used in this repo — see `components/slide-canvas.tsx`'s
+  `trackedSlideId`/`resolvedMedia` state, which is updated synchronously
+  during render (`if (slide && slide.id !== trackedSlideId) { setTrackedSlideId(...); ... }`)
+  rather than via a ref+effect. Follow that same shape here. Keep the logic
+  local to `slide-rail.tsx`, not extracted into `lib/`, since it's only
+  needed here.
 
 ## Steps
 
