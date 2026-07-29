@@ -67,7 +67,7 @@ export function ProfileEditor() {
         <button
           data-cuelume-toggle
           onClick={() => setProfile({ verified: !profile.verified })}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium transition-colors ${
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium transition-[color,background-color,transform] active:scale-[0.97] ${
             profile.verified ? "bg-[#1d9bf0]/15 text-[#1d9bf0]" : "bg-white/5 text-[var(--app-fg-muted)]"
           }`}
         >
@@ -77,7 +77,7 @@ export function ProfileEditor() {
         <button
           data-cuelume-toggle
           onClick={() => setShowXLogo(!showXLogo)}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium transition-colors ${
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium transition-[color,background-color,transform] active:scale-[0.97] ${
             showXLogo ? "bg-[#1d9bf0]/15 text-[#1d9bf0]" : "bg-white/5 text-[var(--app-fg-muted)]"
           }`}
         >

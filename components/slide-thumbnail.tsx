@@ -9,7 +9,17 @@ import type { Slide } from "@/lib/types";
 import { TWEET_MAX_CHARS } from "@/lib/constants";
 import { TweetCard } from "./tweet-card";
 
-export function SlideThumbnail({ slide, index }: { slide: Slide; index: number }) {
+export function SlideThumbnail({
+  slide,
+  index,
+  enterDelay = 0,
+}: {
+  slide: Slide;
+  index: number;
+  /** Seconds to delay this thumbnail's mount-in fade — 0 for anything that
+   *  isn't part of a fresh batch of newly-added slides (see slide-rail.tsx). */
+  enterDelay?: number;
+}) {
   const selectedSlideId = useAppStore((s) => s.selectedSlideId);
   const selectSlide = useAppStore((s) => s.selectSlide);
   const duplicateSlide = useAppStore((s) => s.duplicateSlide);
@@ -46,7 +56,10 @@ export function SlideThumbnail({ slide, index }: { slide: Slide; index: number }
         initial={{ opacity: 0 }}
         animate={{ opacity: isDragging ? 0.5 : 1 }}
         exit={{ opacity: 0 }}
-        transition={{ type: "spring", bounce: 0, duration: 0.3 }}
+        transition={{
+          layout: { type: "spring", bounce: 0, duration: 0.3 },
+          opacity: { type: "spring", bounce: 0, duration: 0.3, delay: enterDelay },
+        }}
         className="group relative"
       >
         <button
@@ -73,7 +86,7 @@ export function SlideThumbnail({ slide, index }: { slide: Slide; index: number }
           </div>
         </button>
 
-        <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-100 transition-opacity [@media(hover:hover)_and_(pointer:fine)]:opacity-0 [@media(hover:hover)_and_(pointer:fine)]:group-hover:opacity-100">
           <button
             data-cuelume-press
             title="duplicate"
@@ -95,7 +108,7 @@ export function SlideThumbnail({ slide, index }: { slide: Slide; index: number }
         <div
           {...attributes}
           {...listeners}
-          className="absolute bottom-1.5 right-1.5 cursor-grab rounded-md bg-black/60 p-1 text-white/60 opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing"
+          className="absolute bottom-1.5 right-1.5 cursor-grab rounded-md bg-black/60 p-1 text-white/60 opacity-100 transition-opacity [@media(hover:hover)_and_(pointer:fine)]:opacity-0 [@media(hover:hover)_and_(pointer:fine)]:group-hover:opacity-100 active:cursor-grabbing"
           title="drag to reorder"
         >
           <GripVertical size={12} />

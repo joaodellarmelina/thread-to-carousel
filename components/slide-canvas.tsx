@@ -6,6 +6,7 @@ import { useAppStore } from "@/lib/store";
 import { ASPECT_DIMENSIONS } from "@/lib/types";
 import type { SlideMedia } from "@/lib/types";
 import { TWEET_MAX_CHARS } from "@/lib/constants";
+import { backdropFade } from "@/lib/motion";
 import { TweetCard } from "./tweet-card";
 import { MediaDropzone } from "./media-dropzone";
 import { TextFitDialog } from "./text-fit-dialog";
@@ -100,7 +101,7 @@ export function SlideCanvas() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={backdropFade}
             className="absolute inset-0"
           >
             <div className="h-full overflow-hidden shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)]">
