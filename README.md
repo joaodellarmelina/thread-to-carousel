@@ -16,7 +16,8 @@
 </p>
 
 <p align="center">
-  <img src="public/img-lp.png" width="800" alt="thread to carousel preview">
+  <img width="1270" height="581" alt="Screenshot 2026-09-04 at 2 01 32 AM" src="https://github.com/user-attachments/assets/e41b0bbb-a37c-427e-b508-d07e4c5f827b" />
+
 </p>
 
 ## why
@@ -61,7 +62,7 @@ paste a raw thread (paragraphs or `---` delimiters split it into slides automati
 ## edit with rich text, see it rendered
 
 <p align="center">
-  <img src="public/img-lp2.png" width="800" alt="editor preview">
+  <img width="1781" height="893" alt="Screenshot 2026-09-04 at 2 01 48 AM" src="https://github.com/user-attachments/assets/bb60cb87-cf02-43e6-bc75-ea1b44583b8d" />
 </p>
 
 captions support inline bold (`⌘B`) and italic (`⌘I`) formatting with live auto-fitting text scaling, date-time pickers, and real-time character limit counters.
@@ -69,7 +70,7 @@ captions support inline bold (`⌘B`) and italic (`⌘I`) formatting with live a
 attach up to 4 photos, GIFs, or videos per slide with per-image focal point adjustment, custom 1/2/3/4 media grids or vertical media layouts, and smooth drag-and-drop slide reordering.
 
 <p align="center">
-  <img src="public/img-lp3.png" width="800" alt="carousel output">
+  <img width="1342" height="644" alt="Screenshot 2026-09-04 at 2 03 36 AM" src="https://github.com/user-attachments/assets/59072984-6dee-441b-9dcb-1a7182e06bf5" />
 </p>
 
 ## shortcuts
