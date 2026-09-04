@@ -1,55 +1,20 @@
 import Image from "next/image";
 import Link from "next/link";
-import { TweetCard } from "./tweet-card";
-import { TWEET_MAX_CHARS } from "@/lib/constants";
-import { DEFAULT_POST_DATETIME } from "@/lib/types";
-import type { Profile, Slide } from "@/lib/types";
 
-const EXAMPLE_PROFILE: Profile = {
-  name: "maya chen",
-  handle: "mayabuilds",
-  verified: true,
-};
-
-function exampleSlide(id: string, text: string): Slide {
-  return {
-    id,
-    text,
-    profile: EXAMPLE_PROFILE,
-    postDateTime: DEFAULT_POST_DATETIME,
-    metrics: { replies: "24", reposts: "108", likes: "1.2K", bookmarks: "86", views: "48K" },
-    display: { showMetrics: true, showViews: true, showDate: true, showXLogo: true, showSlideNumber: false },
-    media: [],
-    mediaLayout: "grid",
-  };
-}
-
-const EXAMPLES: { slide: Slide; theme: "dark" | "light"; cardStyle: "framed" | "square" }[] = [
-  {
-    slide: exampleSlide("ex-1", "i shipped 3 side projects this year and only one made money.\n\nhere's what i'd do differently 🧵"),
-    theme: "dark",
-    cardStyle: "framed",
-  },
-  {
-    slide: exampleSlide("ex-2", "1/ start with the distribution, not the product.\n\nyou can build the best tool in the world — if nobody sees it, it doesn't exist."),
-    theme: "light",
-    cardStyle: "square",
-  },
-  {
-    slide: exampleSlide("ex-3", "2/ charge from day one.\n\nfree users taught me nothing. the first paying customer taught me everything."),
-    theme: "dark",
-    cardStyle: "framed",
-  },
+const EXAMPLES = [
+  { src: "/img-lp.png", alt: "X-style post about Codex weekly limits" },
+  { src: "/img-lp2.png", alt: "X-style post about Claude plan limits" },
+  { src: "/img-lp3.png", alt: "Final X-style thread post with a call to action" },
 ];
 
 const STEPS = [
   {
     title: "write your thread",
-    body: "write or paste your own copy — each post becomes a fully editable slide.",
+    body: "write or paste your own copy. each post becomes a fully editable slide.",
   },
   {
     title: "customize the look",
-    body: "pick a theme, template, and profile — light or dark, framed or edge-to-edge, your name and avatar.",
+    body: "pick a theme, template, and profile: light or dark, framed or edge-to-edge, with your name and avatar.",
   },
   {
     title: "export & post",
@@ -81,14 +46,14 @@ export function LandingPage() {
             create hyper-realistic x threads for instagram
           </h1>
           <p className="max-w-md text-balance text-base text-[var(--app-fg-muted)] sm:text-lg">
-            write every post, profile and metric, attach your own media, then export a carousel that looks real — entirely in your browser.
+            write every post, profile and metric, attach your own media, then export a carousel that looks real, entirely in your browser.
           </p>
           <Link
             href="/app"
             className="rounded-full px-6 py-3 text-sm font-medium lowercase text-white transition-transform active:scale-[0.97]"
             style={{ background: "var(--app-accent)" }}
           >
-            start creating — it&apos;s free
+            start creating. it&apos;s free
           </Link>
         </section>
 
@@ -97,14 +62,14 @@ export function LandingPage() {
           <h2 className="font-display text-xl font-semibold lowercase sm:text-2xl">real output, not a mockup</h2>
           <div className="flex w-full snap-x gap-6 overflow-x-auto pb-4 sm:justify-center sm:overflow-visible">
             {EXAMPLES.map((example) => (
-              <div key={example.slide.id} className="w-56 shrink-0 snap-center overflow-hidden rounded-2xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)] sm:w-64">
-                <TweetCard
-                  slide={example.slide}
-                  theme={example.theme}
-                  cardStyle={example.cardStyle}
-                  frameBackground={example.theme === "dark" ? "#000000" : "#e8f5fd"}
-                  aspectRatio="4:5"
-                  maxChars={TWEET_MAX_CHARS}
+              <div key={example.src} className="w-56 shrink-0 snap-center overflow-hidden rounded-2xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)] sm:w-64">
+                <Image
+                  src={example.src}
+                  alt={example.alt}
+                  width={1080}
+                  height={1350}
+                  sizes="(min-width: 640px) 256px, 224px"
+                  className="h-auto w-full"
                 />
               </div>
             ))}
@@ -137,7 +102,7 @@ export function LandingPage() {
       </main>
 
       <footer className="px-6 py-8 text-center text-xs text-[var(--app-fg-muted)] sm:px-10">
-        thread to carrousel — no signup, nothing leaves your browser.
+        thread to carrousel. no signup, nothing leaves your browser.
       </footer>
     </div>
   );

@@ -1,31 +1,134 @@
-# Thread to Carrousel
+<p align="center">
+  <img src="public/logo.png" width="128" alt="thread to carousel">
+</p>
 
-A local-first studio for composing hyper-realistic X-style threads and exporting them as social carousels. It does not connect to X or use an external content API.
+<h1 align="center">hi, this is thread to carousel</h1>
 
-## Features
+<p align="center">
+  a local-first studio for composing hyper-realistic X-style threads and exporting them as social carousels.<br>
+  everything runs directly in your browser — zero tracking, zero lock-in.
+</p>
 
-- Fully editable posts, profiles, timestamps, and engagement metrics
-- Inline rich text with bold and italic formatting
-- Up to four photos, GIFs, or videos per post
-- X-style 1/2/3/4 media grids and vertical media layout
-- Per-image focal point adjustment and media reordering
-- Light/dark cards, framed or edge-to-edge layouts, and custom backgrounds
-- 1:1, 4:5, and 9:16 exports
-- Individual PNG or full ZIP export
-- Project metadata in localStorage and binary media in IndexedDB
+<p align="center">
+  <a href="https://github.com/joaodellarmelina/thread-to-carousel">
+    <b>open repo on github</b>
+  </a>
+</p>
 
-## Development
+<p align="center">
+  <img src="public/img-lp.png" width="800" alt="thread to carousel preview">
+</p>
 
-```bash
+## why
+
+your posts and media stay in your browser. no external API, no account, no sync server, no lock-in.
+project metadata lives in `localStorage`, and binary media files are stored safely in `IndexedDB`.
+close the tab, work offline, or reload — your edits pick up instantly with zero latency.
+
+## what a slide looks like
+
+every post in your thread is structured as a fully editable slide with customizable profile details, engagement metrics, date/time, and media assets.
+
+```json
+{
+  "id": "slide_8f2a1b",
+  "text": "shipping v2 of thread-to-carousel today 🚀",
+  "profile": {
+    "name": "João Dellarmelina",
+    "handle": "joaodellarmelina",
+    "verified": true
+  },
+  "postDateTime": "2026-09-10T18:00",
+  "metrics": {
+    "replies": "24",
+    "reposts": "108",
+    "likes": "1.2K",
+    "bookmarks": "86",
+    "views": "48K"
+  },
+  "mediaLayout": "grid",
+  "display": {
+    "showMetrics": true,
+    "showViews": true,
+    "showDate": true,
+    "showXLogo": true
+  }
+}
+```
+
+paste a raw thread (paragraphs or `---` delimiters split it into slides automatically) or build your thread slide by slide.
+
+## edit with rich text, see it rendered
+
+<p align="center">
+  <img src="public/img-lp2.png" width="800" alt="editor preview">
+</p>
+
+captions support inline bold (`⌘B`) and italic (`⌘I`) formatting with live auto-fitting text scaling, date-time pickers, and real-time character limit counters.
+
+attach up to 4 photos, GIFs, or videos per slide with per-image focal point adjustment, custom 1/2/3/4 media grids or vertical media layouts, and smooth drag-and-drop slide reordering.
+
+<p align="center">
+  <img src="public/img-lp3.png" width="800" alt="carousel output">
+</p>
+
+## shortcuts
+
+| | |
+|---|---|
+| `⌘B` | bold formatted text selection |
+| `⌘I` | italic formatted text selection |
+| `Drag & Drop` | reorder slides in the rail |
+| `Focal Drag` | adjust per-image focal point position |
+| `Import` | paste raw thread text (split into slides) |
+| `Export` | download individual slide PNGs or complete carousel ZIP |
+
+## run it yourself
+
+```sh
+git clone https://github.com/joaodellarmelina/thread-to-carousel.git
+cd thread-to-carousel
 pnpm install
 pnpm dev
 ```
 
-Open `http://localhost:3000/app`.
+that's it -- open `http://localhost:3000/app` and you're up and running.
 
-## Verification
+## build & verify
 
-```bash
+```sh
 pnpm lint
 pnpm build
 ```
+
+output lands in `.next/`.
+
+## how it works
+
+```
+app/layout.tsx         root layout, Cuelume UI provider, fonts
+app/page.tsx           landing page view
+app/app/page.tsx       studio editor view
+components/editor.tsx  main editor container with slide rail and canvas
+components/tweet-card.tsx hyper-realistic X-style tweet card renderer
+components/slide-canvas.tsx slide preview and editor workspace
+components/slide-rail.tsx  drag-and-drop slide thumbnail rail (@dnd-kit)
+lib/store.ts           Zustand store (localStorage persistence & migration)
+lib/media-db.ts        IndexedDB storage for binary media blobs
+lib/export.ts          html-to-image PNG canvas renderer & JSZip exporter
+lib/parse-thread.ts    heuristic thread block splitter
+```
+
+a few things worth knowing if you're poking around:
+
+- **local-first binary storage** — project metadata lives in `localStorage`, while heavy binary media files (images, GIFs, videos) are saved in `IndexedDB` via `media-db.ts` to prevent exceeding `localStorage` quotas.
+- **atomic canvas rendering** — slide export uses `html-to-image` at high pixel density (`1080x1350`, `1080x1080`, or `1080x1920`) and packages full carousels into a single `.zip` file using `jszip`.
+- **drag-and-drop reordering** — slide ordering uses `@dnd-kit/core` and `@dnd-kit/sortable` for smooth drag-and-drop organization.
+- **sound effects** — interactive UI sound feedback is powered by `cuelume`, with a global toggle in the main toolbar.
+- **strictly local & private** — no external APIs, no backend database, and zero network calls when editing or exporting carousels.
+
+if you wanna make an addition + pr, or just wanna remix the app for yourself, go for it. open a pr and i'll review it! :)
+
+## license
+
+mit
