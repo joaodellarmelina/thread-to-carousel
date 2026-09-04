@@ -48,14 +48,14 @@ export function ThreadImporter({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <p className="text-sm text-[var(--app-fg-muted)] lowercase">
-          write or paste your own copy. separate posts with a blank line, a numbered prefix, or a line with
-          &ldquo;---&rdquo;. every post remains fully editable.
+          write or paste your own copy. put &ldquo;---&rdquo; on its own line whenever you want a new post.
+          blank lines stay inside the same post.
         </p>
         <textarea
           autoFocus
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder={"Podcasts are one of the best ways to generate content...\n\nIf you film an episode, there are a bunch of ways to repurpose it..."}
+          placeholder={"First post with as many paragraphs as you want.\n\nThis is still the first post.\n\n---\n\nThis becomes the second post."}
           rows={10}
           className="w-full resize-none rounded-xl border border-white/10 bg-black/30 p-3 text-sm leading-relaxed outline-none [overflow-wrap:anywhere] placeholder:text-[var(--app-fg-muted)]/60 focus:border-[var(--app-accent)]/50"
         />

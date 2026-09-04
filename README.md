@@ -68,7 +68,7 @@ every post in your thread is structured as a fully editable slide with customiza
 }
 ```
 
-paste a raw thread (paragraphs or `---` delimiters split it into slides automatically) or build your thread slide by slide.
+paste a thread using a line with `---` between posts, or build your thread slide by slide. blank lines remain paragraph spacing inside the same post.
 
 ## edit with rich text, see it rendered
 
@@ -128,7 +128,7 @@ components/slide-rail.tsx  drag-and-drop slide thumbnail rail (@dnd-kit)
 lib/store.ts           Zustand store (localStorage persistence & migration)
 lib/media-db.ts        IndexedDB storage for binary media blobs
 lib/export.ts          html-to-image PNG canvas renderer & JSZip exporter
-lib/parse-thread.ts    heuristic thread block splitter
+lib/parse-thread.ts    explicit `---` thread separator parser
 ```
 
 a few things worth knowing if you're poking around:
