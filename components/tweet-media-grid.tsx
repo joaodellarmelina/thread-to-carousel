@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { MediaAsset, MediaLayout } from "@/lib/types";
 import { PlayGlyph } from "./icons";
 import { MediaFocalDrag } from "./media-focal-drag";
@@ -21,16 +21,40 @@ function MediaTile({
   className?: string;
 }) {
   const imageRef = useRef<HTMLImageElement>(null);
+  const mediaVideoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
   const position = `${media.focalX ?? 50}% ${media.focalY ?? 50}%`;
   const isVideo = media.kind === "video";
 
+  function toggleVideo() {
+    const video = mediaVideoRef.current;
+    if (!video) return;
+    if (video.paused) void video.play();
+    else video.pause();
+  }
+
   return (
-    <div className={`relative min-h-0 min-w-0 overflow-hidden bg-[#16181c] ${className ?? ""}`}>
+    <div data-media-id={media.id} className={`relative min-h-0 min-w-0 overflow-hidden bg-[#16181c] ${className ?? ""}`}>
       {isVideo && posterOverride ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={posterOverride} alt="" className="h-full w-full object-cover" style={{ objectPosition: position }} />
       ) : isVideo && media.src ? (
-        <video ref={(element) => videoRef?.(media.id, element)} src={media.src} className="h-full w-full object-cover" style={{ objectPosition: position }} muted playsInline loop />
+        <video
+          ref={(element) => {
+            mediaVideoRef.current = element;
+            videoRef?.(media.id, element);
+          }}
+          src={media.src}
+          className="h-full w-full cursor-pointer object-cover"
+          style={{ objectPosition: position }}
+          muted
+          playsInline
+          loop
+          onClick={toggleVideo}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+          aria-label="Play or pause attached video"
+        />
       ) : media.src ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img ref={imageRef} data-media-image src={media.src} alt="" draggable={false} className="h-full w-full select-none object-cover" style={{ objectPosition: position }} />
@@ -38,7 +62,7 @@ function MediaTile({
         <div className="flex h-full items-center justify-center text-[2.5cqw] text-white/40">media unavailable</div>
       )}
 
-      {isVideo && media.src && (
+      {isVideo && media.src && !isPlaying && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="flex items-center justify-center rounded-full bg-black/55" style={{ width: "9cqw", height: "9cqw" }}>
             <PlayGlyph className="text-white" style={{ width: "4.5cqw", height: "4.5cqw" }} />

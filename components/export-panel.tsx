@@ -3,13 +3,14 @@
 import { useRef, useState } from "react";
 import { motion } from "motion/react";
 import { play } from "cuelume";
-import { AlertCircle, X, Download, Layers, Loader2 } from "lucide-react";
+import { AlertCircle, X, Download, Film, Layers, Loader2 } from "lucide-react";
 import JSZip from "jszip";
 import { useAppStore } from "@/lib/store";
 import { ASPECT_DIMENSIONS } from "@/lib/types";
 import { TWEET_MAX_CHARS } from "@/lib/constants";
 import { TweetCard } from "./tweet-card";
 import { capturePosterFrame, domToPngBlob, downloadBlob, waitForVideoFrame } from "@/lib/export";
+import { renderTweetVideo, type VideoOverlay } from "@/lib/video-export";
 import { modalSpring, backdropFade } from "@/lib/motion";
 
 function slugify(text: string, fallback: string): string {
@@ -34,7 +35,8 @@ export function ExportPanel({ onClose }: { onClose: () => void }) {
   const aspectRatio = useAppStore((s) => s.aspectRatio);
   const selectedSlideId = useAppStore((s) => s.selectedSlideId);
 
-  const [busy, setBusy] = useState<"single" | "all" | null>(null);
+  const [busy, setBusy] = useState<"single" | "all" | "video" | null>(null);
+  const [videoProgress, setVideoProgress] = useState(0);
   const [posterOverrides, setPosterOverrides] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -42,6 +44,8 @@ export function ExportPanel({ onClose }: { onClose: () => void }) {
   const videoNodes = useRef<Map<string, HTMLVideoElement>>(new Map());
 
   const pixelWidth = ASPECT_DIMENSIONS[aspectRatio].width;
+  const selectedSlide = slides.find((slide) => slide.id === selectedSlideId) ?? slides[0];
+  const selectedSlideHasVideo = !!selectedSlide?.media.some((media) => media.kind === "video" && media.src);
 
   async function capturePosters(targets: string[]) {
     const overrides: Record<string, string> = {};
@@ -155,6 +159,60 @@ export function ExportPanel({ onClose }: { onClose: () => void }) {
     }
   }
 
+  async function exportVideo() {
+    const slide = selectedSlide;
+    if (!slide) return;
+    setBusy("video");
+    setVideoProgress(0);
+    setError(null);
+    try {
+      await capturePosters([slide.id]);
+      const node = cardNodes.current.get(slide.id);
+      if (!node) throw new Error("Card not ready");
+
+      const cardRect = node.getBoundingClientRect();
+      const overlays: VideoOverlay[] = slide.media
+        .filter((media) => media.kind === "video" && media.src)
+        .flatMap((media) => {
+          const tile = Array.from(node.querySelectorAll<HTMLElement>("[data-media-id]")).find(
+            (element) => element.dataset.mediaId === media.id
+          );
+          if (!tile) return [];
+          const rect = tile.getBoundingClientRect();
+          return [{
+            media,
+            rect: {
+              x: rect.left - cardRect.left,
+              y: rect.top - cardRect.top,
+              width: rect.width,
+              height: rect.height,
+            },
+          }];
+        });
+      if (!overlays.length) throw new Error("The attached video is not ready yet.");
+
+      const poster = await domToPngBlob(node, pixelWidth);
+      const dimensions = ASPECT_DIMENSIONS[aspectRatio];
+      const video = await renderTweetVideo({
+        poster,
+        width: dimensions.width,
+        height: dimensions.height,
+        sourceWidth: cardRect.width,
+        overlays,
+        onProgress: setVideoProgress,
+      });
+      downloadBlob(video, `${slugify(slide.text, "post")}.mp4`);
+      play("success");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not export this MP4.");
+      play("error");
+    } finally {
+      setPosterOverrides({});
+      setBusy(null);
+      setVideoProgress(0);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <motion.div
@@ -185,8 +243,7 @@ export function ExportPanel({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <p className="text-sm text-[var(--app-fg-muted)] lowercase">
-          slides export as {ASPECT_DIMENSIONS[aspectRatio].width}×{ASPECT_DIMENSIONS[aspectRatio].height}px pngs, ready
-          for instagram.
+          export png carousels or turn the selected post&apos;s attached video into an instagram-ready mp4.
         </p>
 
         {error && (
@@ -205,6 +262,19 @@ export function ExportPanel({ onClose }: { onClose: () => void }) {
         >
           {busy === "all" ? <Loader2 size={15} className="animate-spin" /> : <Layers size={15} />}
           <span className="lowercase">export all ({slides.length}) as zip</span>
+        </button>
+        <button
+          data-cuelume-press
+          data-cuelume-release
+          onClick={exportVideo}
+          disabled={!!busy || !selectedSlideHasVideo}
+          title={selectedSlideHasVideo ? "export selected post as MP4" : "add a video to the selected post first"}
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--app-accent)]/15 px-4 py-2.5 text-sm font-medium text-[var(--app-accent)] transition-transform active:scale-[0.97] disabled:opacity-40"
+        >
+          {busy === "video" ? <Loader2 size={15} className="animate-spin" /> : <Film size={15} />}
+          <span className="lowercase">
+            {busy === "video" ? `rendering mp4 ${Math.round(videoProgress * 100)}%` : "export selected video as mp4"}
+          </span>
         </button>
         <button
           data-cuelume-press
