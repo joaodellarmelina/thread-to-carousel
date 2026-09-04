@@ -58,6 +58,7 @@ interface AppState {
   importThread: (raw: string) => void;
   updateSlideProfile: (id: string, profile: Partial<Profile>) => void;
   updateSlideDateTime: (id: string, value: string) => void;
+  applyDateTimeToAll: (sourceId: string) => void;
   updateSlideMetrics: (id: string, metrics: Partial<PostMetrics>) => void;
   updateSlideDisplay: (id: string, display: Partial<PostDisplay>) => void;
   applyProfileToAll: (sourceId: string) => void;
@@ -243,6 +244,13 @@ export const useAppStore = create<AppState>()(
       },
       updateSlideDateTime: (id, postDateTime) => {
         set((state) => ({ slides: state.slides.map((s) => (s.id === id ? { ...s, postDateTime } : s)) }));
+      },
+      applyDateTimeToAll: (sourceId) => {
+        const source = get().slides.find((slide) => slide.id === sourceId);
+        if (!source) return;
+        set((state) => ({
+          slides: state.slides.map((slide) => ({ ...slide, postDateTime: source.postDateTime })),
+        }));
       },
       updateSlideMetrics: (id, metrics) => {
         set((state) => ({
