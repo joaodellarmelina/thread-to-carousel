@@ -30,6 +30,7 @@
     </tr>
   </table>
 </div>
+
 ## why
 
 your posts and media stay in your browser. no external API, no account, no sync server, no lock-in.
