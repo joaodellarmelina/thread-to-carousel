@@ -19,8 +19,16 @@
   <img width="1270" height="581" alt="Screenshot 2026-09-04 at 2 01 32 AM" src="https://github.com/user-attachments/assets/e41b0bbb-a37c-427e-b508-d07e4c5f827b" />
 </p>
 <div align="center">
-<img width="1080" height="1080" alt="02-who-is-jo-o-dellarmelina" src="https://github.com/user-attachments/assets/e6e867d9-6df7-4201-8ee9-d03cb2b62434" />
-<img width="1080" height="1080" alt="01-get-to-know-sam-altman" src="https://github.com/user-attachments/assets/e65a5087-15aa-4b4f-860d-54a963996771" />
+  <table>
+    <tr>
+      <td align="center">
+        <img width="360" alt="01-get-to-know-sam-altman" src="https://github.com/user-attachments/assets/e65a5087-15aa-4b4f-860d-54a963996771" />
+      </td>
+      <td align="center">
+        <img width="360" alt="02-who-is-jo-o-dellarmelina" src="https://github.com/user-attachments/assets/e6e867d9-6df7-4201-8ee9-d03cb2b62434" />
+      </td>
+    </tr>
+  </table>
 </div>
 ## why
 
