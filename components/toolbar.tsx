@@ -14,11 +14,9 @@ import {
   RectangleVertical,
   Square,
   Frame,
-  Calendar,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { FramePicker } from "./frame-picker";
-import { DateTimePicker } from "./date-time-picker";
 
 export function Toolbar({
   onImport,
@@ -41,11 +39,8 @@ export function Toolbar({
   const setSoundEnabled = useAppStore((s) => s.setSoundEnabled);
   const addSlide = useAppStore((s) => s.addSlide);
   const hasSlides = useAppStore((s) => s.slides.length > 0);
-  const profile = useAppStore((s) => s.profile);
-  const postDateTime = useAppStore((s) => s.postDateTime);
-  const setPostDateTime = useAppStore((s) => s.setPostDateTime);
+  const profile = useAppStore((s) => s.slides.find((slide) => slide.id === s.selectedSlideId)?.profile ?? s.profile);
   const [framePickerOpen, setFramePickerOpen] = useState(false);
-  const [dateTimePickerOpen, setDateTimePickerOpen] = useState(false);
 
   function toggleSound() {
     const next = !soundEnabled;
@@ -92,7 +87,7 @@ export function Toolbar({
           <button
             data-cuelume-toggle
             data-cuelume-hover="tick"
-            onClick={() => setAspectRatio(aspectRatio === "4:5" ? "1:1" : "4:5")}
+            onClick={() => setAspectRatio(aspectRatio === "4:5" ? "1:1" : aspectRatio === "1:1" ? "9:16" : "4:5")}
             className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-[var(--app-fg-muted)] transition-[color,background-color,transform] hover:bg-white/5 hover:text-[var(--app-fg)] active:scale-[0.97]"
             title="toggle aspect ratio"
           >
@@ -131,16 +126,6 @@ export function Toolbar({
               style={{ background: frameBackground }}
             />
           )}
-
-          <button
-            data-cuelume-press
-            data-cuelume-hover="tick"
-            onClick={() => setDateTimePickerOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-[var(--app-fg-muted)] transition-[color,background-color,transform] hover:bg-white/5 hover:text-[var(--app-fg)] active:scale-[0.97]"
-            title="post date & time"
-          >
-            <Calendar size={15} />
-          </button>
 
           <button
             data-cuelume-toggle
@@ -192,16 +177,6 @@ export function Toolbar({
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {dateTimePickerOpen && (
-          <DateTimePicker
-            key="date-time-picker"
-            value={postDateTime}
-            onChange={setPostDateTime}
-            onClose={() => setDateTimePickerOpen(false)}
-          />
-        )}
-      </AnimatePresence>
     </header>
   );
 }

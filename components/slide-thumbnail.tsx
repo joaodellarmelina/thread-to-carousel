@@ -24,13 +24,10 @@ export function SlideThumbnail({
   const selectSlide = useAppStore((s) => s.selectSlide);
   const duplicateSlide = useAppStore((s) => s.duplicateSlide);
   const removeSlide = useAppStore((s) => s.removeSlide);
-  const profile = useAppStore((s) => s.profile);
   const cardTheme = useAppStore((s) => s.cardTheme);
   const cardStyle = useAppStore((s) => s.cardStyle);
   const frameBackground = useAppStore((s) => s.frameBackground);
   const aspectRatio = useAppStore((s) => s.aspectRatio);
-  const postDateTime = useAppStore((s) => s.postDateTime);
-  const showXLogo = useAppStore((s) => s.showXLogo);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: slide.id,
@@ -72,14 +69,11 @@ export function SlideThumbnail({
         >
           <TweetCard
             slide={slide}
-            profile={profile}
             theme={cardTheme}
             cardStyle={cardStyle}
             frameBackground={frameBackground}
             aspectRatio={aspectRatio}
-            postDateTime={postDateTime}
             maxChars={TWEET_MAX_CHARS}
-            showXLogo={showXLogo}
           />
           <div className="absolute left-1.5 top-1.5 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white/80">
             {index + 1}

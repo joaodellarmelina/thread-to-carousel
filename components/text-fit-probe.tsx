@@ -5,7 +5,7 @@ import { TweetCard } from "./tweet-card";
 import { trimToFit } from "@/lib/text-fit";
 import { TWEET_MAX_CHARS } from "@/lib/constants";
 import { useIsomorphicLayoutEffect } from "@/lib/use-isomorphic-layout-effect";
-import type { Profile, Slide, CardTheme, CardStyle, AspectRatio } from "@/lib/types";
+import type { Slide, CardTheme, CardStyle, AspectRatio } from "@/lib/types";
 
 export interface TextFitResult {
   /** The real capacity for this exact configuration, independent of how much
@@ -38,23 +38,17 @@ function padToLength(text: string, length: number): string {
  */
 export function TextFitProbe({
   slide,
-  profile,
   theme,
   cardStyle,
   frameBackground,
   aspectRatio,
-  postDateTime,
-  showXLogo,
   onMeasured,
 }: {
   slide: Slide;
-  profile: Profile;
   theme: CardTheme;
   cardStyle: CardStyle;
   frameBackground: string;
   aspectRatio: AspectRatio;
-  postDateTime: string;
-  showXLogo: boolean;
   onMeasured: (result: TextFitResult) => void;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -101,7 +95,7 @@ export function TextFitProbe({
       return () => img.removeEventListener("load", measure);
     }
     // Only true layout-affecting inputs — profile/theme don't change available height.
-  }, [slide.text, slide.media, cardStyle, aspectRatio, postDateTime, showXLogo]);
+  }, [slide.text, slide.richText, slide.media, slide.postDateTime, slide.display, cardStyle, aspectRatio]);
 
   return (
     <div style={{ position: "fixed", left: -9999, top: 0, width: 480, pointerEvents: "none" }} aria-hidden="true">
@@ -109,14 +103,11 @@ export function TextFitProbe({
         <TweetCard
           ref={cardRef}
           slide={slide}
-          profile={profile}
           theme={theme}
           cardStyle={cardStyle}
           frameBackground={frameBackground}
           aspectRatio={aspectRatio}
-          postDateTime={postDateTime}
           maxChars={TWEET_MAX_CHARS}
-          showXLogo={showXLogo}
         />
       </div>
     </div>

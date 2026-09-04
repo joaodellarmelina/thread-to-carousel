@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { motion } from "motion/react";
 import { play } from "cuelume";
-import { X, Download, Layers, Loader2 } from "lucide-react";
+import { AlertCircle, X, Download, Layers, Loader2 } from "lucide-react";
 import JSZip from "jszip";
 import { useAppStore } from "@/lib/store";
 import { ASPECT_DIMENSIONS } from "@/lib/types";
@@ -11,7 +11,6 @@ import { TWEET_MAX_CHARS } from "@/lib/constants";
 import { TweetCard } from "./tweet-card";
 import { capturePosterFrame, domToPngBlob, downloadBlob, waitForVideoFrame } from "@/lib/export";
 import { modalSpring, backdropFade } from "@/lib/motion";
-import { trimToFit } from "@/lib/text-fit";
 
 function slugify(text: string, fallback: string): string {
   const s = text
@@ -29,44 +28,38 @@ function videoExtension(name: string): string {
 
 export function ExportPanel({ onClose }: { onClose: () => void }) {
   const slides = useAppStore((s) => s.slides);
-  const profile = useAppStore((s) => s.profile);
   const cardTheme = useAppStore((s) => s.cardTheme);
   const cardStyle = useAppStore((s) => s.cardStyle);
   const frameBackground = useAppStore((s) => s.frameBackground);
   const aspectRatio = useAppStore((s) => s.aspectRatio);
-  const postDateTime = useAppStore((s) => s.postDateTime);
-  const showXLogo = useAppStore((s) => s.showXLogo);
   const selectedSlideId = useAppStore((s) => s.selectedSlideId);
-  const updateSlideText = useAppStore((s) => s.updateSlideText);
 
   const [busy, setBusy] = useState<"single" | "all" | null>(null);
   const [posterOverrides, setPosterOverrides] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
 
   const cardNodes = useRef<Map<string, HTMLDivElement>>(new Map());
   const videoNodes = useRef<Map<string, HTMLVideoElement>>(new Map());
 
   const pixelWidth = ASPECT_DIMENSIONS[aspectRatio].width;
 
-  /**
-   * Safety net: a slide's text only gets trimmed to fit live while it's the one
-   * being actively edited. If the aspect ratio/template changed globally and this
-   * slide was never revisited, its stored text could still overflow — checked and
-   * corrected here, right before it's captured, so an export can never clip text.
-   */
-  function ensureFits(slide: (typeof slides)[number], node: HTMLElement) {
-    const body = node.querySelector<HTMLElement>("[data-tweet-body]");
-    if (!body) return;
-    const { text, trimmed } = trimToFit(body);
-    if (trimmed) updateSlideText(slide.id, text);
-  }
-
   async function capturePosters(targets: string[]) {
     const overrides: Record<string, string> = {};
-    for (const id of targets) {
-      const video = videoNodes.current.get(id);
-      if (!video) continue;
-      await waitForVideoFrame(video);
-      overrides[id] = capturePosterFrame(video);
+    const targetIds = new Set(targets);
+    for (const slide of slides) {
+      if (!targetIds.has(slide.id)) continue;
+      for (const media of slide.media) {
+        if (media.kind !== "video") continue;
+        const video = videoNodes.current.get(media.id);
+        if (!video) continue;
+        try {
+          await waitForVideoFrame(video);
+          if (video.readyState >= 2) overrides[media.id] = capturePosterFrame(video);
+        } catch {
+          // A video codec may be previewable but not canvas-decodable. Its
+          // original file still belongs in the ZIP, so don't abort the batch.
+        }
+      }
     }
     if (Object.keys(overrides).length > 0) {
       setPosterOverrides(overrides);
@@ -80,28 +73,33 @@ export function ExportPanel({ onClose }: { onClose: () => void }) {
     const slide = slides.find((s) => s.id === selectedSlideId) ?? slides[0];
     if (!slide) return;
     setBusy("single");
+    setError(null);
     try {
-      const needsVideo = slide.media?.kind === "video" && !!slide.media.objectUrl;
+      const needsVideo = slide.media.some((media) => media.kind === "video" && !!media.src);
       if (needsVideo) await capturePosters([slide.id]);
 
       const node = cardNodes.current.get(slide.id);
       if (!node) throw new Error("Card not ready");
-      ensureFits(slide, node);
       const pngBlob = await domToPngBlob(node, pixelWidth);
       const baseName = slugify(slide.text, "slide");
 
-      if (needsVideo && slide.media?.objectUrl) {
+      if (needsVideo) {
         const zip = new JSZip();
         zip.file(`${baseName}.png`, pngBlob);
-        const videoBlob = await fetch(slide.media.objectUrl).then((r) => r.blob());
-        zip.file(`${baseName}-video.${videoExtension(slide.media.name)}`, videoBlob);
+        const videos = slide.media.filter((media) => media.kind === "video" && media.src);
+        for (let index = 0; index < videos.length; index++) {
+          const video = videos[index];
+          const videoBlob = await fetch(video.src!).then((r) => r.blob());
+          zip.file(`${baseName}-video-${index + 1}.${videoExtension(video.name)}`, videoBlob);
+        }
         const content = await zip.generateAsync({ type: "blob" });
         downloadBlob(content, `${baseName}.zip`);
       } else {
         downloadBlob(pngBlob, `${baseName}.png`);
       }
       play("success");
-    } catch {
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not export this slide.");
       play("error");
     } finally {
       setPosterOverrides({});
@@ -111,28 +109,45 @@ export function ExportPanel({ onClose }: { onClose: () => void }) {
 
   async function exportAll() {
     setBusy("all");
+    setError(null);
     try {
-      const videoSlideIds = slides.filter((s) => s.media?.kind === "video" && s.media.objectUrl).map((s) => s.id);
+      const videoSlideIds = slides.filter((s) => s.media.some((media) => media.kind === "video" && media.src)).map((s) => s.id);
       if (videoSlideIds.length > 0) await capturePosters(videoSlideIds);
 
       const zip = new JSZip();
+      let capturedSlides = 0;
       for (let i = 0; i < slides.length; i++) {
         const slide = slides[i];
         const node = cardNodes.current.get(slide.id);
         if (!node) continue;
-        ensureFits(slide, node);
-        const pngBlob = await domToPngBlob(node, pixelWidth);
+        let pngBlob: Blob;
+        try {
+          pngBlob = await domToPngBlob(node, pixelWidth);
+        } catch (cause) {
+          const detail = cause instanceof Error && cause.message ? `: ${cause.message}` : "";
+          throw new Error(`Slide ${i + 1} could not be rendered${detail}`);
+        }
+        capturedSlides += 1;
         const baseName = `${String(i + 1).padStart(2, "0")}-${slugify(slide.text, "slide")}`;
         zip.file(`${baseName}.png`, pngBlob);
-        if (slide.media?.kind === "video" && slide.media.objectUrl) {
-          const videoBlob = await fetch(slide.media.objectUrl).then((r) => r.blob());
-          zip.file(`${baseName}-video.${videoExtension(slide.media.name)}`, videoBlob);
+        const videos = slide.media.filter((media) => media.kind === "video" && media.src);
+        for (let videoIndex = 0; videoIndex < videos.length; videoIndex++) {
+          const video = videos[videoIndex];
+          try {
+            const videoBlob = await fetch(video.src!).then((r) => r.blob());
+            zip.file(`${baseName}-video-${videoIndex + 1}.${videoExtension(video.name)}`, videoBlob);
+          } catch {
+            // The PNG carousel remains useful even if an optional source video
+            // cannot be copied into the archive.
+          }
         }
       }
+      if (capturedSlides === 0) throw new Error("No slides were ready to export.");
       const content = await zip.generateAsync({ type: "blob" });
       downloadBlob(content, "carousel.zip");
       play("success");
-    } catch {
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not create the ZIP.");
       play("error");
     } finally {
       setPosterOverrides({});
@@ -174,6 +189,13 @@ export function ExportPanel({ onClose }: { onClose: () => void }) {
           for instagram.
         </p>
 
+        {error && (
+          <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-xs text-red-300">
+            <AlertCircle size={15} className="mt-0.5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
         <button
           data-cuelume-press
           data-cuelume-release
@@ -205,17 +227,15 @@ export function ExportPanel({ onClose }: { onClose: () => void }) {
                 if (el) cardNodes.current.set(slide.id, el);
               }}
               slide={slide}
-              profile={profile}
               theme={cardTheme}
               cardStyle={cardStyle}
               frameBackground={frameBackground}
               aspectRatio={aspectRatio}
-              postDateTime={postDateTime}
               maxChars={TWEET_MAX_CHARS}
-              showXLogo={showXLogo}
-              posterOverride={posterOverrides[slide.id]}
-              videoRef={(el) => {
-                if (el) videoNodes.current.set(slide.id, el);
+              posterOverrides={posterOverrides}
+              videoRef={(mediaId, el) => {
+                if (el) videoNodes.current.set(mediaId, el);
+                else videoNodes.current.delete(mediaId);
               }}
             />
           </div>

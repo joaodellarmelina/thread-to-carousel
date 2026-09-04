@@ -37,7 +37,7 @@ export function ThreadImporter({ onClose }: { onClose: () => void }) {
         className="modal-surface relative z-10 flex w-full max-w-lg flex-col gap-4 rounded-2xl p-5"
       >
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-base font-semibold lowercase">paste your thread</h2>
+          <h2 className="font-display text-base font-semibold lowercase">write your thread</h2>
           <button
             data-cuelume-press
             onClick={onClose}
@@ -48,8 +48,8 @@ export function ThreadImporter({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <p className="text-sm text-[var(--app-fg-muted)] lowercase">
-          separate each tweet with a blank line (or paste it as-is, numbered tweets and &ldquo;---&rdquo;
-          separators are detected automatically). you can edit every slide afterward.
+          write or paste your own copy. separate posts with a blank line, a numbered prefix, or a line with
+          &ldquo;---&rdquo;. every post remains fully editable.
         </p>
         <textarea
           autoFocus

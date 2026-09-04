@@ -11,28 +11,32 @@ const EXAMPLE_PROFILE: Profile = {
   verified: true,
 };
 
+function exampleSlide(id: string, text: string): Slide {
+  return {
+    id,
+    text,
+    profile: EXAMPLE_PROFILE,
+    postDateTime: DEFAULT_POST_DATETIME,
+    metrics: { replies: "24", reposts: "108", likes: "1.2K", bookmarks: "86", views: "48K" },
+    display: { showMetrics: true, showViews: true, showDate: true, showXLogo: true, showSlideNumber: false },
+    media: [],
+    mediaLayout: "grid",
+  };
+}
+
 const EXAMPLES: { slide: Slide; theme: "dark" | "light"; cardStyle: "framed" | "square" }[] = [
   {
-    slide: {
-      id: "ex-1",
-      text: "i shipped 3 side projects this year and only one made money.\n\nhere's what i'd do differently 🧵",
-    },
+    slide: exampleSlide("ex-1", "i shipped 3 side projects this year and only one made money.\n\nhere's what i'd do differently 🧵"),
     theme: "dark",
     cardStyle: "framed",
   },
   {
-    slide: {
-      id: "ex-2",
-      text: "1/ start with the distribution, not the product.\n\nyou can build the best tool in the world — if nobody sees it, it doesn't exist.",
-    },
+    slide: exampleSlide("ex-2", "1/ start with the distribution, not the product.\n\nyou can build the best tool in the world — if nobody sees it, it doesn't exist."),
     theme: "light",
     cardStyle: "square",
   },
   {
-    slide: {
-      id: "ex-3",
-      text: "2/ charge from day one.\n\nfree users taught me nothing. the first paying customer taught me everything.",
-    },
+    slide: exampleSlide("ex-3", "2/ charge from day one.\n\nfree users taught me nothing. the first paying customer taught me everything."),
     theme: "dark",
     cardStyle: "framed",
   },
@@ -40,8 +44,8 @@ const EXAMPLES: { slide: Slide; theme: "dark" | "light"; cardStyle: "framed" | "
 
 const STEPS = [
   {
-    title: "paste your thread",
-    body: "drop in the text of your x thread — each tweet becomes its own slide, automatically.",
+    title: "write your thread",
+    body: "write or paste your own copy — each post becomes a fully editable slide.",
   },
   {
     title: "customize the look",
@@ -74,11 +78,10 @@ export function LandingPage() {
         <section className="flex max-w-2xl flex-col items-center gap-6 pt-10 text-center sm:pt-16">
           <Image src="/logo.png" alt="" width={56} height={56} className="rounded-2xl" priority />
           <h1 className="display-heading font-display text-4xl font-semibold lowercase sm:text-6xl">
-            turn an x thread into an instagram carousel
+            create hyper-realistic x threads for instagram
           </h1>
           <p className="max-w-md text-balance text-base text-[var(--app-fg-muted)] sm:text-lg">
-            paste your thread, pick a look, export a carousel that reads like the real thing — entirely in your
-            browser.
+            write every post, profile and metric, attach your own media, then export a carousel that looks real — entirely in your browser.
           </p>
           <Link
             href="/app"
@@ -97,12 +100,10 @@ export function LandingPage() {
               <div key={example.slide.id} className="w-56 shrink-0 snap-center overflow-hidden rounded-2xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)] sm:w-64">
                 <TweetCard
                   slide={example.slide}
-                  profile={EXAMPLE_PROFILE}
                   theme={example.theme}
                   cardStyle={example.cardStyle}
                   frameBackground={example.theme === "dark" ? "#000000" : "#e8f5fd"}
                   aspectRatio="4:5"
-                  postDateTime={DEFAULT_POST_DATETIME}
                   maxChars={TWEET_MAX_CHARS}
                 />
               </div>

@@ -8,11 +8,16 @@ import { NAME_MAX_CHARS, HANDLE_MAX_CHARS } from "@/lib/constants";
 import { XLogo } from "./icons";
 
 export function ProfileEditor() {
-  const profile = useAppStore((s) => s.profile);
-  const setProfile = useAppStore((s) => s.setProfile);
-  const showXLogo = useAppStore((s) => s.showXLogo);
-  const setShowXLogo = useAppStore((s) => s.setShowXLogo);
+  const selectedSlideId = useAppStore((s) => s.selectedSlideId);
+  const profile = useAppStore((s) => s.slides.find((slide) => slide.id === s.selectedSlideId)?.profile);
+  const display = useAppStore((s) => s.slides.find((slide) => slide.id === s.selectedSlideId)?.display);
+  const updateSlideProfile = useAppStore((s) => s.updateSlideProfile);
+  const updateSlideDisplay = useAppStore((s) => s.updateSlideDisplay);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  if (!profile || !display || !selectedSlideId) return null;
+
+  const setProfile = (next: Partial<typeof profile>) => updateSlideProfile(selectedSlideId, next);
 
   return (
     <div className="material flex flex-col gap-3 rounded-xl p-3">
@@ -76,9 +81,9 @@ export function ProfileEditor() {
         </button>
         <button
           data-cuelume-toggle
-          onClick={() => setShowXLogo(!showXLogo)}
+          onClick={() => updateSlideDisplay(selectedSlideId, { showXLogo: !display.showXLogo })}
           className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium transition-[color,background-color,transform] active:scale-[0.97] ${
-            showXLogo ? "bg-[#1d9bf0]/15 text-[#1d9bf0]" : "bg-white/5 text-[var(--app-fg-muted)]"
+            display.showXLogo ? "bg-[#1d9bf0]/15 text-[#1d9bf0]" : "bg-white/5 text-[var(--app-fg-muted)]"
           }`}
         >
           <XLogo style={{ width: 13, height: 13 }} />

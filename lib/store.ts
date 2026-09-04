@@ -3,13 +3,24 @@ import { persist, createJSONStorage, type StateStorage } from "zustand/middlewar
 import { makeId } from "./id";
 import { parseThread } from "./parse-thread";
 import { TWEET_MAX_CHARS } from "./constants";
+import { truncateCharacters } from "./characters";
 import { DEFAULT_POST_DATETIME } from "./types";
-import type { AspectRatio, CardStyle, CardTheme, Profile, Slide, SlideMedia } from "./types";
+import { loadMediaBlob } from "./media-db";
+import type {
+  AspectRatio,
+  CardStyle,
+  CardTheme,
+  MediaAsset,
+  MediaLayout,
+  PostDisplay,
+  PostMetrics,
+  Profile,
+  Slide,
+} from "./types";
 
-// Slide/profile images are compressed before they ever reach the store, but a
-// long carousel with many images can still add up — localStorage's quota
-// (~5-10MB) is a hard ceiling. A failed write should never crash the app;
-// it just means that particular change won't survive a reload.
+// Binary slide media lives in IndexedDB; localStorage only holds the small,
+// serializable project model (plus compact profile avatars). A failed write
+// should never crash the editor.
 const safeLocalStorage: StateStorage = {
   getItem: (name) => (typeof window === "undefined" ? null : localStorage.getItem(name)),
   setItem: (name, value) => {
@@ -32,27 +43,30 @@ interface AppState {
   aspectRatio: AspectRatio;
   soundEnabled: boolean;
   profileIntroShown: boolean;
-  postDateTime: string;
-  showXLogo: boolean;
-
   addSlide: (text?: string) => string;
   removeSlide: (id: string) => void;
   duplicateSlide: (id: string) => void;
   updateSlideText: (id: string, text: string) => void;
+  updateSlideContent: (id: string, text: string, richText: string) => void;
   reorderSlides: (fromId: string, toId: string) => void;
   selectSlide: (id: string | null) => void;
-  attachMedia: (id: string, media: SlideMedia) => void;
-  clearMedia: (id: string) => void;
-  setMediaFocalPoint: (id: string, x: number, y: number) => void;
+  addMedia: (id: string, media: MediaAsset[]) => void;
+  removeMedia: (id: string, mediaId: string) => void;
+  reorderMedia: (id: string, mediaId: string, direction: -1 | 1) => void;
+  setMediaLayout: (id: string, layout: MediaLayout) => void;
+  setMediaFocalPoint: (id: string, mediaId: string, x: number, y: number) => void;
   importThread: (raw: string) => void;
-  setProfile: (profile: Partial<Profile>) => void;
+  updateSlideProfile: (id: string, profile: Partial<Profile>) => void;
+  updateSlideDateTime: (id: string, value: string) => void;
+  updateSlideMetrics: (id: string, metrics: Partial<PostMetrics>) => void;
+  updateSlideDisplay: (id: string, display: Partial<PostDisplay>) => void;
+  applyProfileToAll: (sourceId: string) => void;
+  hydrateMedia: () => Promise<void>;
   setCardTheme: (theme: CardTheme) => void;
   setCardStyle: (style: CardStyle) => void;
   setFrameBackground: (background: string) => void;
   setAspectRatio: (ratio: AspectRatio) => void;
   setSoundEnabled: (enabled: boolean) => void;
-  setPostDateTime: (value: string) => void;
-  setShowXLogo: (show: boolean) => void;
   markProfileIntroShown: () => void;
   reset: () => void;
 }
@@ -63,13 +77,38 @@ const defaultProfile: Profile = {
   verified: true,
 };
 
-function emptySlide(text = ""): Slide {
-  return { id: makeId(), text };
+const defaultMetrics: PostMetrics = {
+  replies: "24",
+  reposts: "108",
+  likes: "1.2K",
+  bookmarks: "86",
+  views: "48K",
+};
+
+const defaultDisplay: PostDisplay = {
+  showMetrics: true,
+  showViews: true,
+  showDate: true,
+  showXLogo: true,
+  showSlideNumber: false,
+};
+
+function emptySlide(text = "", profile = defaultProfile): Slide {
+  return {
+    id: makeId(),
+    text,
+    profile: { ...profile },
+    postDateTime: DEFAULT_POST_DATETIME,
+    metrics: { ...defaultMetrics },
+    display: { ...defaultDisplay },
+    media: [],
+    mediaLayout: "grid",
+  };
 }
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       slides: [],
       selectedSlideId: null,
       profile: defaultProfile,
@@ -79,11 +118,9 @@ export const useAppStore = create<AppState>()(
       aspectRatio: "4:5",
       soundEnabled: true,
       profileIntroShown: false,
-      postDateTime: DEFAULT_POST_DATETIME,
-      showXLogo: true,
-
       addSlide: (text = "") => {
-        const slide = emptySlide(text);
+        const current = get().slides.find((s) => s.id === get().selectedSlideId);
+        const slide = emptySlide(text, current?.profile ?? get().profile);
         set((state) => ({
           slides: [...state.slides, slide],
           selectedSlideId: slide.id,
@@ -116,7 +153,13 @@ export const useAppStore = create<AppState>()(
 
       updateSlideText: (id, text) => {
         set((state) => ({
-          slides: state.slides.map((s) => (s.id === id ? { ...s, text } : s)),
+          slides: state.slides.map((s) => (s.id === id ? { ...s, text, richText: undefined } : s)),
+        }));
+      },
+
+      updateSlideContent: (id, text, richText) => {
+        set((state) => ({
+          slides: state.slides.map((s) => (s.id === id ? { ...s, text, richText } : s)),
         }));
       },
 
@@ -134,51 +177,126 @@ export const useAppStore = create<AppState>()(
 
       selectSlide: (id) => set({ selectedSlideId: id }),
 
-      attachMedia: (id, media) => {
-        set((state) => ({
-          slides: state.slides.map((s) => (s.id === id ? { ...s, media } : s)),
-        }));
-      },
-
-      clearMedia: (id) => {
-        set((state) => ({
-          slides: state.slides.map((s) => (s.id === id ? { ...s, media: undefined } : s)),
-        }));
-      },
-
-      setMediaFocalPoint: (id, x, y) => {
+      addMedia: (id, media) => {
         set((state) => ({
           slides: state.slides.map((s) =>
-            s.id === id && s.media ? { ...s, media: { ...s.media, focalX: x, focalY: y } } : s
+            s.id === id ? { ...s, media: [...s.media, ...media].slice(0, 4) } : s
+          ),
+        }));
+      },
+
+      removeMedia: (id, mediaId) => {
+        set((state) => ({
+          slides: state.slides.map((s) =>
+            s.id === id ? { ...s, media: s.media.filter((item) => item.id !== mediaId) } : s
+          ),
+        }));
+      },
+
+      reorderMedia: (id, mediaId, direction) => {
+        set((state) => ({
+          slides: state.slides.map((s) => {
+            if (s.id !== id) return s;
+            const from = s.media.findIndex((item) => item.id === mediaId);
+            const to = from + direction;
+            if (from < 0 || to < 0 || to >= s.media.length) return s;
+            const media = [...s.media];
+            [media[from], media[to]] = [media[to], media[from]];
+            return { ...s, media };
+          }),
+        }));
+      },
+
+      setMediaLayout: (id, mediaLayout) => {
+        set((state) => ({
+          slides: state.slides.map((s) => (s.id === id ? { ...s, mediaLayout } : s)),
+        }));
+      },
+
+      setMediaFocalPoint: (id, mediaId, x, y) => {
+        set((state) => ({
+          slides: state.slides.map((s) =>
+            s.id === id
+              ? {
+                  ...s,
+                  media: s.media.map((item) =>
+                    item.id === mediaId ? { ...item, focalX: x, focalY: y } : item
+                  ),
+                }
+              : s
           ),
         }));
       },
 
       importThread: (raw) => {
         const tweets = parseThread(raw);
-        const slides = tweets.map((text) => emptySlide(text.slice(0, TWEET_MAX_CHARS)));
+        const profile = get().slides.find((s) => s.id === get().selectedSlideId)?.profile ?? get().profile;
+        const slides = tweets.map((text) => emptySlide(truncateCharacters(text, TWEET_MAX_CHARS), profile));
         set({ slides, selectedSlideId: slides[0]?.id ?? null });
       },
 
-      setProfile: (profile) => set((state) => ({ profile: { ...state.profile, ...profile } })),
+      updateSlideProfile: (id, profile) => {
+        set((state) => ({
+          slides: state.slides.map((s) => (s.id === id ? { ...s, profile: { ...s.profile, ...profile } } : s)),
+          profile: { ...state.profile, ...profile },
+        }));
+      },
+      updateSlideDateTime: (id, postDateTime) => {
+        set((state) => ({ slides: state.slides.map((s) => (s.id === id ? { ...s, postDateTime } : s)) }));
+      },
+      updateSlideMetrics: (id, metrics) => {
+        set((state) => ({
+          slides: state.slides.map((s) => (s.id === id ? { ...s, metrics: { ...s.metrics, ...metrics } } : s)),
+        }));
+      },
+      updateSlideDisplay: (id, display) => {
+        set((state) => ({
+          slides: state.slides.map((s) => (s.id === id ? { ...s, display: { ...s.display, ...display } } : s)),
+        }));
+      },
+      applyProfileToAll: (sourceId) => {
+        const source = get().slides.find((s) => s.id === sourceId);
+        if (!source) return;
+        set((state) => ({
+          profile: { ...source.profile },
+          slides: state.slides.map((s) => ({ ...s, profile: { ...source.profile } })),
+        }));
+      },
+      hydrateMedia: async () => {
+        const slides = get().slides;
+        const sources = new Map<string, string>();
+        await Promise.all(slides.flatMap((slide) => slide.media.map(async (media) => {
+          if (media.src) return;
+          const blob = await loadMediaBlob(media.storageId);
+          if (blob) sources.set(media.id, URL.createObjectURL(blob));
+        })));
+        set((state) => ({
+          slides: state.slides.map((slide) => ({
+            ...slide,
+            media: slide.media.map((media) => sources.has(media.id) ? { ...media, src: sources.get(media.id) } : media),
+          })),
+        }));
+      },
       setCardTheme: (cardTheme) => set({ cardTheme }),
       setCardStyle: (cardStyle) => set({ cardStyle }),
       setFrameBackground: (frameBackground) => set({ frameBackground }),
       setAspectRatio: (aspectRatio) => set({ aspectRatio }),
       setSoundEnabled: (soundEnabled) => set({ soundEnabled }),
-      setPostDateTime: (postDateTime) => set({ postDateTime }),
-      setShowXLogo: (showXLogo) => set({ showXLogo }),
       markProfileIntroShown: () => set({ profileIntroShown: true }),
 
       reset: () => set({ slides: [], selectedSlideId: null }),
     }),
     {
       name: "x-carrousel-store",
+      version: 2,
       storage: createJSONStorage(() => safeLocalStorage),
       partialize: (state) => ({
         slides: state.slides.map((s) => ({
           ...s,
-          media: s.media?.kind === "video" ? { ...s.media, objectUrl: undefined, needsReattach: true } : s.media,
+          media: s.media.map((media) => ({
+            ...media,
+            src: media.src?.startsWith("data:") ? media.src : undefined,
+          })),
         })),
         selectedSlideId: state.selectedSlideId,
         profile: state.profile,
@@ -188,9 +306,49 @@ export const useAppStore = create<AppState>()(
         aspectRatio: state.aspectRatio,
         soundEnabled: state.soundEnabled,
         profileIntroShown: state.profileIntroShown,
-        postDateTime: state.postDateTime,
-        showXLogo: state.showXLogo,
       }),
+      migrate: (persistedState) => {
+        const old = persistedState as Partial<AppState> & {
+          postDateTime?: string;
+          showXLogo?: boolean;
+          slides?: Array<Partial<Slide> & { media?: unknown }>;
+        };
+        return {
+          ...old,
+          slides: (old.slides ?? []).map((slide) => {
+            const legacyMedia = slide.media && !Array.isArray(slide.media) ? slide.media as {
+              kind?: "image" | "video";
+              dataUrl?: string;
+              objectUrl?: string;
+              name?: string;
+              focalX?: number;
+              focalY?: number;
+            } : undefined;
+            return {
+              ...emptySlide(slide.text ?? "", slide.profile ?? old.profile ?? defaultProfile),
+              ...slide,
+              profile: slide.profile ?? old.profile ?? defaultProfile,
+              postDateTime: slide.postDateTime ?? old.postDateTime ?? DEFAULT_POST_DATETIME,
+              metrics: slide.metrics ?? defaultMetrics,
+              display: slide.display ?? { ...defaultDisplay, showMetrics: false, showXLogo: old.showXLogo ?? true },
+              media: Array.isArray(slide.media)
+                ? slide.media
+                : legacyMedia
+                  ? [{
+                      id: makeId(),
+                      storageId: makeId(),
+                      kind: legacyMedia.kind === "video" ? "video" : "image",
+                      src: legacyMedia.dataUrl ?? legacyMedia.objectUrl,
+                      name: legacyMedia.name ?? "media",
+                      focalX: legacyMedia.focalX,
+                      focalY: legacyMedia.focalY,
+                    }]
+                  : [],
+              mediaLayout: slide.mediaLayout ?? "grid",
+            } satisfies Slide;
+          }),
+        } as AppState;
+      },
     }
   )
 );

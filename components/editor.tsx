@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, MotionConfig } from "motion/react";
 import { useAppStore } from "@/lib/store";
 import { Toolbar } from "./toolbar";
@@ -15,9 +15,14 @@ export function Editor() {
   const hasSlides = useAppStore((s) => s.slides.length > 0);
   const profileIntroShown = useAppStore((s) => s.profileIntroShown);
   const markProfileIntroShown = useAppStore((s) => s.markProfileIntroShown);
+  const hydrateMedia = useAppStore((s) => s.hydrateMedia);
   const [importerOpen, setImporterOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+
+  useEffect(() => {
+    void hydrateMedia();
+  }, [hydrateMedia]);
 
   // Prompt for profile details once, the first time slides exist.
   const showProfilePanel = profileOpen || (hasSlides && !profileIntroShown);

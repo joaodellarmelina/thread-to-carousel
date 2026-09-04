@@ -24,7 +24,7 @@ export function EmptyState({ onPaste }: { onPaste: () => void }) {
         <div className="flex flex-col gap-2">
           <h1 className="font-display display-heading text-2xl font-semibold lowercase">thread to carrousel</h1>
           <p className="text-sm leading-relaxed text-[var(--app-fg-muted)] lowercase">
-            paste an x thread. get an editable, instagram-ready carousel.
+            build a hyper-realistic x thread from scratch. everything stays on your device.
           </p>
         </div>
         <div className="flex w-full flex-col gap-2.5 sm:flex-row sm:justify-center">
@@ -35,7 +35,7 @@ export function EmptyState({ onPaste }: { onPaste: () => void }) {
             className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--app-accent)] px-5 py-2.5 text-sm font-medium text-white shadow-[0_1px_0_rgba(255,255,255,0.2)_inset] transition-transform active:scale-[0.97]"
           >
             <PenLine size={16} />
-            <span className="lowercase">paste a thread</span>
+            <span className="lowercase">write a thread</span>
           </button>
           <button
             data-cuelume-press

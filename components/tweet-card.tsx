@@ -1,61 +1,80 @@
 "use client";
 
 import { forwardRef, useRef } from "react";
-import type { Profile, Slide, CardTheme, CardStyle, AspectRatio } from "@/lib/types";
+import { BarChart3, Bookmark, Heart, MessageCircle, Repeat2 } from "lucide-react";
+import type { Slide, CardTheme, CardStyle, AspectRatio } from "@/lib/types";
 import { ASPECT_DIMENSIONS } from "@/lib/types";
 import { formatPostDateTime } from "@/lib/date";
+import { editorPlainText, plainTextToHtml, sanitizeRichText } from "@/lib/rich-text";
+import { countCharacters, truncateCharacters } from "@/lib/characters";
 import { useIsomorphicLayoutEffect } from "@/lib/use-isomorphic-layout-effect";
-import { XLogo, VerifiedBadge, PlayGlyph } from "./icons";
-import { MediaFocalDrag } from "./media-focal-drag";
+import { XLogo, VerifiedBadge } from "./icons";
+import { TweetMediaGrid } from "./tweet-media-grid";
 
 interface TweetCardProps {
   slide: Slide;
-  profile: Profile;
   theme: CardTheme;
   cardStyle: CardStyle;
   frameBackground: string;
   aspectRatio: AspectRatio;
-  /** "datetime-local" value, e.g. "2023-06-07T10:39" — same for every slide. */
-  postDateTime: string;
-  /** The real, currently-measured character ceiling for this exact configuration
-   *  (see TextFitProbe) — never a guess. Non-editable instances can pass TWEET_MAX_CHARS. */
+  /** Stable composition limit. It is intentionally independent of visual wrapping. */
   maxChars: number;
-  /** Whether to show the X wordmark glyph in the card header. Defaults to true. */
-  showXLogo?: boolean;
   editable?: boolean;
-  onTextChange?: (text: string) => void;
-  onMediaFocalPointChange?: (point: { x: number; y: number }) => void;
-  videoRef?: React.Ref<HTMLVideoElement>;
-  /** When set, replaces a video slide's <video> with this frame — used while capturing exports. */
-  posterOverride?: string;
+  onContentChange?: (text: string, richText: string) => void;
+  onMediaFocalPointChange?: (mediaId: string, point: { x: number; y: number }) => void;
+  videoRef?: (mediaId: string, element: HTMLVideoElement | null) => void;
+  /** Replaces videos with decoded still frames while capturing exports. */
+  posterOverrides?: Record<string, string>;
+}
+
+function Metric({ icon, value }: { icon: React.ReactElement; value: string }) {
+  return (
+    <div className="flex items-center gap-[1cqw] whitespace-nowrap">
+      <span className="[&>svg]:h-[3.2cqw] [&>svg]:w-[3.2cqw]">{icon}</span>
+      <span>{value}</span>
+    </div>
+  );
 }
 
 export const TweetCard = forwardRef<HTMLDivElement, TweetCardProps>(function TweetCard(
   {
     slide,
-    profile,
     theme,
     cardStyle,
     frameBackground,
     aspectRatio,
-    postDateTime,
     maxChars,
-    showXLogo = true,
     editable = false,
-    onTextChange,
+    onContentChange,
     onMediaFocalPointChange,
     videoRef,
-    posterOverride,
+    posterOverrides,
   },
   ref
 ) {
   const textRef = useRef<HTMLDivElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const dims = ASPECT_DIMENSIONS[aspectRatio];
   const isDark = theme === "dark";
   const isFramed = cardStyle === "framed";
   const cardBg = isDark ? "#000000" : "#ffffff";
-  const timestampLabel = formatPostDateTime(postDateTime);
+  const timestampLabel = formatPostDateTime(slide.postDateTime);
+  const profile = slide.profile;
+
+  function commitEditorContent(el: HTMLDivElement) {
+    let text = editorPlainText(el);
+    if (countCharacters(text) > maxChars) {
+      text = truncateCharacters(text, maxChars);
+      el.textContent = text;
+      const range = document.createRange();
+      const selection = window.getSelection();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    }
+    onContentChange?.(text, sanitizeRichText(el.innerHTML));
+  }
 
   // Layout effect (not a passive one) — commits before paint, so a parent
   // measuring this synced text (see TextFitProbe) never sees a stale frame.
@@ -64,14 +83,65 @@ export const TweetCard = forwardRef<HTMLDivElement, TweetCardProps>(function Twe
     if (!el) return;
     // Don't clobber the live cursor position while this instance is being typed into.
     if (editable && document.activeElement === el) return;
-    if (el.textContent !== slide.text) {
-      el.textContent = slide.text;
+    const nextHtml = sanitizeRichText(slide.richText ?? plainTextToHtml(slide.text));
+    if (el.innerHTML !== nextHtml) {
+      el.innerHTML = nextHtml;
     }
-  }, [slide.id, slide.text, editable]);
+  }, [slide.id, slide.text, slide.richText, editable]);
+
+  // A fixed social canvas cannot grow like a real post. Preserve the complete
+  // post by reclaiming media height first, then gently reducing type until the
+  // body fits. This is layout-only: the stored text and 280-char counter never
+  // change as words wrap.
+  useIsomorphicLayoutEffect(() => {
+    const root = rootRef.current;
+    const body = textRef.current;
+    if (!root || !body) return;
+
+    const defaultMediaHeight =
+      slide.mediaLayout === "vertical" && slide.media.length > 1
+        ? 48
+        : slide.media.length === 1
+          ? 43
+          : slide.media.length === 2
+            ? 42
+            : 44;
+    const minMediaHeight = aspectRatio === "1:1" ? 16 : aspectRatio === "4:5" ? 22 : 30;
+    const minFontSize = aspectRatio === "1:1" ? 2.8 : 3.2;
+    let mediaHeight = defaultMediaHeight;
+    let fontSize = 4.4;
+
+    root.style.setProperty("--tweet-media-height", `${mediaHeight}cqw`);
+    root.style.setProperty("--tweet-font-size", `${fontSize}cqw`);
+
+    const overflows = () => body.scrollHeight > body.clientHeight + 1;
+
+    while (slide.media.length > 0 && overflows() && mediaHeight > minMediaHeight) {
+      mediaHeight = Math.max(minMediaHeight, mediaHeight - 1);
+      root.style.setProperty("--tweet-media-height", `${mediaHeight}cqw`);
+    }
+    while (overflows() && fontSize > minFontSize) {
+      fontSize = Math.max(minFontSize, fontSize - 0.1);
+      root.style.setProperty("--tweet-font-size", `${fontSize.toFixed(1)}cqw`);
+    }
+  }, [
+    slide.text,
+    slide.richText,
+    slide.media,
+    slide.mediaLayout,
+    slide.display,
+    slide.postDateTime,
+    aspectRatio,
+    cardStyle,
+  ]);
 
   return (
     <div
-      ref={ref}
+      ref={(node) => {
+        rootRef.current = node;
+        if (typeof ref === "function") ref(node);
+        else if (ref) ref.current = node;
+      }}
       data-export-card
       className="relative flex select-none flex-col overflow-hidden"
       style={{
@@ -131,13 +201,14 @@ export const TweetCard = forwardRef<HTMLDivElement, TweetCardProps>(function Twe
                   </span>
                 </div>
               </div>
-              {showXLogo && <XLogo className="shrink-0" style={{ width: "5.5cqw", height: "5.5cqw" }} />}
+              {slide.display.showXLogo && <XLogo className="shrink-0" style={{ width: "5.5cqw", height: "5.5cqw" }} />}
             </div>
 
             {/* Body text */}
             <div
               ref={textRef}
               data-tweet-body
+              data-live-editor={editable ? slide.id : undefined}
               contentEditable={editable}
               suppressContentEditableWarning
               onKeyDown={(e) => {
@@ -153,7 +224,7 @@ export const TweetCard = forwardRef<HTMLDivElement, TweetCardProps>(function Twe
                 if (e.key !== "Enter") return;
                 e.preventDefault();
                 const el = e.currentTarget;
-                if ((el.textContent ?? "").length >= maxChars) return;
+                if (countCharacters(editorPlainText(el)) >= maxChars) return;
                 const selection = window.getSelection();
                 if (!selection || selection.rangeCount === 0) return;
                 const range = selection.getRangeAt(0);
@@ -164,29 +235,32 @@ export const TweetCard = forwardRef<HTMLDivElement, TweetCardProps>(function Twe
                 range.setEndAfter(newline);
                 selection.removeAllRanges();
                 selection.addRange(range);
-                onTextChange?.(el.textContent ?? "");
+                commitEditorContent(el);
+              }}
+              onPaste={(e) => {
+                if (!editable) return;
+                e.preventDefault();
+                const selection = window.getSelection();
+                if (!selection || selection.rangeCount === 0) return;
+                const range = selection.getRangeAt(0);
+                range.deleteContents();
+                const pasted = document.createTextNode(e.clipboardData.getData("text/plain"));
+                range.insertNode(pasted);
+                range.setStartAfter(pasted);
+                range.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(range);
+                const el = e.currentTarget;
+                commitEditorContent(el);
               }}
               onInput={(e) => {
                 const el = e.currentTarget;
-                let text = el.textContent ?? "";
-                // maxChars is a live, measured value (see TextFitProbe) — this is a
-                // plain length cap, no DOM measurement here at all.
-                if (text.length > maxChars) {
-                  text = text.slice(0, maxChars);
-                  el.textContent = text;
-                  const range = document.createRange();
-                  const selection = window.getSelection();
-                  range.selectNodeContents(el);
-                  range.collapse(false);
-                  selection?.removeAllRanges();
-                  selection?.addRange(range);
-                }
-                onTextChange?.(text);
+                commitEditorContent(el);
               }}
               className={`min-h-0 min-w-0 flex-1 overflow-hidden whitespace-pre-wrap outline-none ${editable ? "cursor-text" : ""}`}
               style={{
-                fontSize: "4.4cqw",
-                lineHeight: 1.4,
+                fontSize: "var(--tweet-font-size, 4.4cqw)",
+                lineHeight: 1.35,
                 letterSpacing: "-0.005em",
                 // A long unbroken run (no spaces — a URL, or just mashing the keyboard)
                 // must still wrap instead of overflowing the fixed-size card.
@@ -195,87 +269,28 @@ export const TweetCard = forwardRef<HTMLDivElement, TweetCardProps>(function Twe
             />
 
             {/* Media */}
-            {slide.media && (
-              <div
-                className={`relative shrink-0 overflow-hidden rounded-[2.2cqw] ${isDark ? "bg-[#16181c]" : "bg-[#f0f0f0]"}`}
-                style={{ marginTop: "4cqw", maxHeight: "48cqw" }}
-              >
-                {slide.media.kind === "image" && slide.media.dataUrl && (
-                  <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      ref={imageRef}
-                      data-media-image
-                      src={slide.media.dataUrl}
-                      alt=""
-                      draggable={false}
-                      className="block w-full select-none object-cover"
-                      style={{
-                        maxHeight: "48cqw",
-                        objectPosition: `${slide.media.focalX ?? 50}% ${slide.media.focalY ?? 50}%`,
-                      }}
-                    />
-                    {editable && onMediaFocalPointChange && (
-                      <MediaFocalDrag
-                        imageRef={imageRef}
-                        focalX={slide.media.focalX ?? 50}
-                        focalY={slide.media.focalY ?? 50}
-                        onChange={onMediaFocalPointChange}
-                      />
-                    )}
-                  </>
-                )}
-                {slide.media.kind === "video" && posterOverride && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={posterOverride}
-                    alt=""
-                    className="block w-full object-cover"
-                    style={{ maxHeight: "48cqw" }}
-                  />
-                )}
-                {slide.media.kind === "video" && !posterOverride && slide.media.objectUrl && (
-                  <>
-                    <video
-                      ref={videoRef}
-                      src={slide.media.objectUrl}
-                      className="block w-full object-cover"
-                      style={{
-                        maxHeight: "48cqw",
-                        objectPosition: `${slide.media.focalX ?? 50}% ${slide.media.focalY ?? 50}%`,
-                      }}
-                      muted
-                      playsInline
-                      loop
-                    />
-                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                      <div
-                        className="flex items-center justify-center rounded-full bg-black/50"
-                        style={{ width: "10cqw", height: "10cqw" }}
-                      >
-                        <PlayGlyph className="text-white" style={{ width: "5cqw", height: "5cqw" }} />
-                      </div>
-                    </div>
-                  </>
-                )}
-                {slide.media.kind === "video" && slide.media.needsReattach && (
-                  <div
-                    className="flex items-center justify-center text-center opacity-70"
-                    style={{ height: "30cqw", fontSize: "3cqw", padding: "3cqw" }}
-                  >
-                    Video needs to be re-attached after reload
-                  </div>
-                )}
+            {slide.media.length > 0 && (
+              <div style={{ marginTop: "4cqw" }}>
+                <TweetMediaGrid media={slide.media} layout={slide.mediaLayout} editable={editable} posterOverrides={posterOverrides} onFocalPointChange={onMediaFocalPointChange} videoRef={videoRef} />
               </div>
             )}
 
-            {/* Timestamp — global, set once via the date/time picker, applies to every slide. */}
-            <div
-              className={`shrink-0 whitespace-nowrap ${isDark ? "text-[#71767b]" : "text-[#536471]"}`}
-              style={{ fontSize: "3.1cqw", marginTop: "4cqw" }}
-            >
-              {timestampLabel}
-            </div>
+            {/* Post-specific timestamp and engagement metadata. */}
+            {slide.display.showDate && (
+              <div className={`shrink-0 whitespace-nowrap ${isDark ? "text-[#71767b]" : "text-[#536471]"}`} style={{ fontSize: "3.1cqw", marginTop: "4cqw" }}>
+                {timestampLabel}
+              </div>
+            )}
+
+            {slide.display.showMetrics && (
+              <div className={`grid shrink-0 grid-cols-5 border-t ${isDark ? "border-white/10 text-[#71767b]" : "border-black/10 text-[#536471]"}`} style={{ marginTop: "3.2cqw", paddingTop: "2.8cqw", fontSize: "2.65cqw" }}>
+                <Metric icon={<MessageCircle />} value={slide.metrics.replies} />
+                <Metric icon={<Repeat2 />} value={slide.metrics.reposts} />
+                <Metric icon={<Heart />} value={slide.metrics.likes} />
+                <Metric icon={<Bookmark />} value={slide.metrics.bookmarks} />
+                {slide.display.showViews ? <Metric icon={<BarChart3 />} value={slide.metrics.views} /> : <span />}
+              </div>
+            )}
           </div>
         </div>
       </div>
